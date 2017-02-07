@@ -1,9 +1,13 @@
-Traffic Prediction question for ASC17
+ Prediction question for ASC17
 
 ##Ideas###
 * LSTM RNN Network at each node with temporal and spatial state:
 
+<<<<<<< HEAD
     A. Two LSTM RNN at each node with activator function/NN to combine two outputs (Working On)
+=======
+    A. One LSTM RNN at each node, another LSTM RNN through all nodes, with activator function/NN to combine two outputs (Working On)
+>>>>>>> Graph Convolution implemented
 
     B. Rewrite Tensorflow LSTM Implementaion
         
@@ -25,6 +29,12 @@ Traffic Prediction question for ASC17
   
     B. Distinct state between nodes, input node data one by one
   
+<<<<<<< HEAD
     C. Two RNN(spatial and temporal) with NN(FC?) at last to combine the two inputs
 
 * Graph Convolution?
+=======
+* Graph Convolution?
+
+* Recursive Neural Network (TreeNet)
+>>>>>>> Graph Convolution implemented
