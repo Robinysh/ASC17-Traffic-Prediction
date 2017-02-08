@@ -10,6 +10,7 @@ def uniform(shape, scale=0.05, name=None):
 
 def glorot(shape, name=None):
     """Glorot & Bengio (AISTATS 2010) init."""
+    print shape
     weight_shape = (shape[0][1],shape[1][1])
     init_range = np.sqrt(6.0/sum(weight_shape))
     #init_range = np.sqrt(6.0/(shape[0]+shape[1]))
