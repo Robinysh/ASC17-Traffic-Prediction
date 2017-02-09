@@ -148,11 +148,12 @@ class GraphConvolution(Layer):
         self.bias = bias
 
         with tf.variable_scope(self.name + '_vars'):
+            print "GCN",[input_dim,output_dim]
             for i in range(len(self.support)):
                 self.vars['weights_' + str(i)] = glorot([input_dim, output_dim],
                                                         name='weights_' + str(i))
             if self.bias:
-                self.vars['bias'] = zeros([output_dim], name='bias')
+                self.vars['bias'] = zeros((output_dim[1],), name='bias')
 
         if self.logging:
             self._log_vars()
@@ -171,8 +172,8 @@ class GraphConvolution(Layer):
                              sparse=self.sparse_inputs)
             else:
                 pre_sup = self.vars['weights_' + str(i)] 
+            #support = dot(pre_sup, self.support[i], sparse=False) #Changed dot order
             support = dot(self.support[i], pre_sup, sparse=False)
-            #support = dot(self.support[i], pre_sup, sparse=True)
             supports.append(support)
         output = tf.add_n(supports)
         #print output

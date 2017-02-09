@@ -103,7 +103,7 @@ class MLP(Model):
         # Weight decay loss
         for var in self.layers[0].vars.values():
             self.loss += FLAGS.weight_decay * tf.nn.l2_loss(var)
-
+        
         # Cross entropy error
         self.loss += masked_softmax_cross_entropy(self.outputs, self.placeholders['labels'],
                                                   self.placeholders['labels_mask'])
@@ -113,6 +113,7 @@ class MLP(Model):
                                         self.placeholders['labels_mask'])
 
     def _build(self):
+       
         self.layers.append(Dense(input_dim=self.input_dim,
                                  output_dim=FLAGS.hidden1,
                                  placeholders=self.placeholders,
@@ -127,7 +128,7 @@ class MLP(Model):
                                  act=lambda x: x,
                                  dropout=True,
                                  logging=self.logging))
-
+        
     def predict(self):
         return tf.nn.softmax(self.outputs)
 
@@ -146,14 +147,17 @@ class GCN(Model):
         self.build()
 
     def _loss(self):
-        # Weight decay loss
+        # Weight decay losis
+        
         for var in self.layers[0].vars.values():
             self.loss += FLAGS.weight_decay * tf.nn.l2_loss(var)
-
+        
         # Cross entropy error
-        self.loss += tf.nn.softmax_cross_entropy_with_logits(self.outputs, self.placeholders['labels'])
+        self.cross = tf.nn.softmax_cross_entropy_with_logits(tf.transpose(self.outputs), tf.transpose(self.placeholders['labels']))
+        self.loss += tf.nn.softmax_cross_entropy_with_logits(tf.transpose(self.outputs), tf.transpose(self.placeholders['labels']))
+        #print "SOFTMAX", tf.nn.softmax_cross_entropy_with_logits(self.outputs, self.placeholders['labels'])
     def _accuracy(self):
-        correct_prediction = tf.equal(tf.argmax(self.outputs, 1), tf.argmax(self.placeholders['labels'], 1))
+        correct_prediction = tf.equal(tf.round(self.outputs), self.placeholders['labels'])
         self.accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 
     def _build(self):
@@ -162,14 +166,17 @@ class GCN(Model):
                                             placeholders=self.placeholders,
                                             act=tf.nn.relu,
                                             dropout=True,
+                                            bias=True,
                                             logging=self.logging))
-
+        
         self.layers.append(GraphConvolution(input_dim=(self.input_dim[0],FLAGS.hidden1),
                                             output_dim=self.output_dim,
                                             placeholders=self.placeholders,
                                             act=lambda x: x,
                                             dropout=True,
+                                            bias=True,
                                             logging=self.logging))
-
+        
+             
     def predict(self):
         return tf.nn.softmax(self.outputs)
