@@ -35,7 +35,6 @@ flags.DEFINE_integer('number_of_features', 3, 'Number of features for the graph 
 flags.DEFINE_integer('early_stopping', 10, 'Tolerance for early stopping (# of epochs).')
 flags.DEFINE_integer('max_degree', 3, 'Maximum Chebyshev polynomial degree.')
 
-#Load data
 #adj, features, y_train, y_val, y_test, train_mask, val_mask, test_mask = load_data(FLAGS.dataset)
 
 #adjecency matrix
@@ -46,15 +45,6 @@ for node in graph_raw:
   for el in node[1]:
     graph[graph_list.index(node[0])][graph_list.index(el)] = 1
 graph = np.array(graph)
-
-speed = []
-next(speed_raw)
-for row in speed_raw:
-  speed.append([int(el) for el in row[0].split(',')[1:-1]]) 
-speed = np.asarray(speed).T
-onehot = np.zeros(speed.shape+(4,))
-
-#Time*Number of Node
 #graph = graph.tolist()
 #print "GRAPH",graph
 # Some preprocessing
@@ -80,8 +70,8 @@ else:
 placeholders = {
     #'support': [tf.sparse_placeholder(tf.float32) for _ in range(num_supports)],
     'support': [tf.placeholder(tf.float32) for _ in range(num_supports)],
-    'features': tf.placeholder(tf.float32, shape=speed.shape),
-    'labels': tf.placeholder(tf.float32, shape=speed.shape),
+    'features': tf.placeholder(tf.float32, shape=inputs.shape[1:]),
+    'labels': tf.placeholder(tf.float32, shape=onehot.shape[1:]),
     #'labels': tf.placeholder(tf.float32, shape=onehot.shape[2:0:-1]),
     'dropout': tf.placeholder_with_default(0., shape=())
 }
