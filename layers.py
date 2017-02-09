@@ -73,6 +73,7 @@ class Layer(object):
             if self.logging and not self.sparse_inputs:
                 tf.histogram_summary(self.name + '/inputs', inputs)
             outputs = self._call(inputs)
+            print "OUTS",outputs
             if self.logging:
                 tf.histogram_summary(self.name + '/outputs', outputs)
             return outputs
@@ -148,11 +149,12 @@ class GraphConvolution(Layer):
         self.bias = bias
 
         with tf.variable_scope(self.name + '_vars'):
+            print "GCN",[input_dim,output_dim]
             for i in range(len(self.support)):
                 self.vars['weights_' + str(i)] = glorot([input_dim, output_dim],
                                                         name='weights_' + str(i))
             if self.bias:
-                self.vars['bias'] = zeros([output_dim], name='bias')
+                self.vars['bias'] = zeros((output_dim[1],), name='bias')
 
         if self.logging:
             self._log_vars()
@@ -171,8 +173,8 @@ class GraphConvolution(Layer):
                              sparse=self.sparse_inputs)
             else:
                 pre_sup = self.vars['weights_' + str(i)] 
+            #support = dot(pre_sup, self.support[i], sparse=False) #Changed dot order
             support = dot(self.support[i], pre_sup, sparse=False)
-            #support = dot(self.support[i], pre_sup, sparse=True)
             supports.append(support)
         output = tf.add_n(supports)
         #print output
@@ -204,13 +206,14 @@ class FullyConnected(Layer):
             self.vars['weights_'] = glorot([(number_of_features, input_dim[1]), output_dim],
                                                         name='weights_')
             if self.bias:
-                self.vars['bias'] = zeros([output_dim], name='bias')
+                #self.vars['bias'] = zeros([output_dim], name='bias') #Not sure why implemented 
+                self.vars['bias'] = zeros(output_dim, name='bias')
 
         if self.logging:
             self._log_vars()
 
     def _call(self, inputs):
-        x = tf.concat(0, inputs)
+        x = tf.concat(1, inputs)
         # dropout
         x = tf.nn.dropout(x, 1-self.dropout)
 

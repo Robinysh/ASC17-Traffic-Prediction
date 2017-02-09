@@ -45,6 +45,13 @@ for node in graph_raw:
   for el in node[1]:
     graph[graph_list.index(node[0])][graph_list.index(el)] = 1
 graph = np.array(graph)
+
+speed = []
+next(speed_raw)
+for row in speed_raw:
+  speed.append([int(el) for el in row[0].split(',')[1:-1]]) 
+speed = [[[i] for i in l] for l in speed]
+speed = np.swapaxes(np.asarray(speed),0,1)
 #graph = graph.tolist()
 #print "GRAPH",graph
 # Some preprocessing
@@ -70,18 +77,17 @@ else:
 placeholders = {
     #'support': [tf.sparse_placeholder(tf.float32) for _ in range(num_supports)],
     'support': [tf.placeholder(tf.float32) for _ in range(num_supports)],
-    'features': tf.placeholder(tf.float32, shape=inputs.shape[1:]),
-    'labels': tf.placeholder(tf.float32, shape=onehot.shape[1:]),
+    'features': tf.placeholder(tf.float32, shape=speed.shape[1:]),
+    'labels': tf.placeholder(tf.float32, shape=speed.shape[1:]),
     #'labels': tf.placeholder(tf.float32, shape=onehot.shape[2:0:-1]),
     'dropout': tf.placeholder_with_default(0., shape=())
 }
 
 #Create Model
-model = model_func(placeholders, input_dim=inputs.shape[1:], logging=False)
+model = model_func(placeholders, input_dim=speed.shape[1:], logging=False)
 
 # Initialize session
 sess = tf.Session()
-
 
 # Define model evaluation function
 def evaluate(features, support, labels):
@@ -95,36 +101,31 @@ def evaluate(features, support, labels):
 sess.run(tf.global_variables_initializer())
 
 cost_val = []
-print "SHAPE"
-print inputs[1].T
-print onehot[1].T
-print placeholders
-
 # Train model
 #for epoch in range(FLAGS.epochs)
-print "TEST",onehot[1]
-for epoch in range(inputs.shape[0]-1):
+for epoch in range(1, speed.shape[0]-1):
     t = time.time()
     # Construct feed dictionary
-    feed_dict = construct_feed_dict(inputs[epoch], support, onehot[epoch], placeholders)
+    
+    feed_dict = construct_feed_dict(speed[epoch-1], support, speed[epoch], placeholders)
     #print '\n\n\nFEED', feed_dict,'\n\n\n\n\n\n'
     feed_dict.update({placeholders['dropout']: FLAGS.dropout})
 
     # Training step
     #sess.run([model.opt_op, model.loss, model.accuracy], feed_dict=feed_dict)
-    outs = sess.run([model.opt_op, model.loss, model.accuracy, model.outputs], feed_dict=feed_dict)
+    outs = sess.run([model.opt_op, model.loss, model.accuracy, model.outputs,model.cross], feed_dict=feed_dict)
     #print "OUTS", outs
 
     # Validation
-    cost, acc, duration = evaluate(inputs[epoch], support, onehot[epoch])
+    cost, acc, duration = evaluate(speed[epoch-1], support, speed[epoch])
     cost_val.append(cost)
     
     # Print results
     if epoch%50==0:
-      print "Epoch:", '%04d' % (epoch + 1), "train_loss=",sum(outs[1]),\
-            "train_acc=%.8f"%outs[2], "val_loss=",sum(cost),\
-            "val_acc=%.8f" %acc, "time=%.5f" %(time.time() - t)
-      print "Outputs", outs[3],"\nLabels",speed,"\nInput",inputs[epoch]
+      print "Epoch:", '%04d' % (epoch + 1), "train_loss=%.5f"%sum(outs[1]),\
+            "train_acc=%.5f"%outs[2], "loss_diff=%.5f"%(sum(outs[1])-sum(cost)),\
+            "acc_diff=%.5f" %(outs[2]-acc), "time=%.5f" %(time.time() - t)
+      print "Outputs", outs[3][0:5],"\nLabels",speed[epoch][0:5],"\nInput",speed[epoch-1][0:5],"\nCross",outs[4]
     
     """
     if epoch > FLAGS.early_stopping and cost_val[-1] > np.mean(cost_val[-(FLAGS.early_stopping+1):-1]):
@@ -132,8 +133,9 @@ for epoch in range(inputs.shape[0]-1):
         break
     """
 print "Optimization Finished!"
-
+"""
 # Testing
 test_cost, test_acc, test_duration = evaluate(inputs[-2], support, onehot[-2])
 print "Test set results:", "cost=", test_cost,\
       "accuracy=", test_acc, "time=", test_duration
+"""
