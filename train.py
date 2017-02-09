@@ -169,6 +169,6 @@ for epoch in range(inputs.shape[0]-1):
 print "Optimization Finished!"
 
 # Testing
-test_cost, test_acc, test_duration = evaluate(inputs[-2], support, onehot[-d])
+test_cost, test_acc, test_duration = evaluate(inputs[-2], support, onehot[-2])
 print "Test set results:", "cost=", test_cost,\
       "accuracy=", test_acc, "time=", test_duration
