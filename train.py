@@ -124,7 +124,7 @@ for epoch in range(inputs.shape[0]-1):
       print "Epoch:", '%04d' % (epoch + 1), "train_loss=",sum(outs[1]),\
             "train_acc=%.8f"%outs[2], "val_loss=",sum(cost),\
             "val_acc=%.8f" %acc, "time=%.5f" %(time.time() - t)
-      print "Outputs", outs[3],"\nLabels",onehot[epoch],"\nInput",inputs[epoch]
+      print "Outputs", outs[3],"\nLabels",speed,"\nInput",inputs[epoch]
     
     """
     if epoch > FLAGS.early_stopping and cost_val[-1] > np.mean(cost_val[-(FLAGS.early_stopping+1):-1]):

@@ -181,7 +181,7 @@ class GCN(Model):
                                           act=tf.nn.relu,
                                           dropout=True,
                                           logging=self.logging))
-"""
+    """
         self.layers.append(GraphConvolution(input_dim=self.input_dim,
                                             output_dim=(self.input_dim[0],FLAGS.hidden1),
                                             placeholders=self.placeholders,
@@ -195,6 +195,6 @@ class GCN(Model):
                                             act=lambda x: x,
                                             dropout=True,
                                             logging=self.logging))
-"""
+    """
     def predict(self):
         return tf.nn.softmax(self.outputs)

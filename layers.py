@@ -181,7 +181,6 @@ class GraphConvolution(Layer):
             output += self.vars['bias']
 
         return self.act(output)
-<<<<<<< HEAD
 
 class FullyConnected(Layer):
     """Graph convolution layer."""
@@ -223,5 +222,3 @@ class FullyConnected(Layer):
             output += self.vars['bias']
 
         return self.act(output)
-=======
->>>>>>> remotes/origin/speedinput
