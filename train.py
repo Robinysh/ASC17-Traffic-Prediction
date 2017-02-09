@@ -27,14 +27,15 @@ tf.set_random_seed(seed)
 flags = tf.app.flags
 FLAGS = flags.FLAGS
 flags.DEFINE_string('model', 'gcn', 'Model string.')  # 'gcn', 'gcn_cheby', 'dense'
-flags.DEFINE_float('learning_rate', 5e-5,'Initial learning rate.')
+flags.DEFINE_float('learning_rate', 5e-5, 'Initial learning rate.')
 flags.DEFINE_integer('hidden1', 1024, 'Number of units in hidden layer 1.')
-flags.DEFINE_float('dropout', 0.5, 'Dropout rate (1 - keep probability).')
-flags.DEFINE_float('weight_decay', 1e-4, 'Weight for L2 loss on embedding matrix.')
+flags.DEFINE_float('dropout', 0.01, 'Dropout rate (1 - keep probability).')
+flags.DEFINE_float('weight_decay', 1e-5, 'Weight for L2 loss on embedding matrix.')
+flags.DEFINE_integer('number_of_features', 3, 'Number of features for the graph convolution layer.')
 flags.DEFINE_integer('early_stopping', 10, 'Tolerance for early stopping (# of epochs).')
 flags.DEFINE_integer('max_degree', 3, 'Maximum Chebyshev polynomial degree.')
 
-# Load data
+#Load data
 #adj, features, y_train, y_val, y_test, train_mask, val_mask, test_mask = load_data(FLAGS.dataset)
 
 #adjecency matrix
@@ -45,41 +46,15 @@ for node in graph_raw:
   for el in node[1]:
     graph[graph_list.index(node[0])][graph_list.index(el)] = 1
 graph = np.array(graph)
+
 speed = []
 next(speed_raw)
 for row in speed_raw:
-  speed.append([int(el) for el in row[0].split(',')[1:-1]]) #HACK:[1:] -> [2:]
-
+  speed.append([int(el) for el in row[0].split(',')[1:-1]]) 
 speed = np.asarray(speed).T
 onehot = np.zeros(speed.shape+(4,))
 
-#Time*Number of Node*Onehot Label
-for i in xrange(len(speed)):
-  for j in xrange(len(speed[i])):
-    onehot[i,j,speed[i,j]-1]=1
-
-#onehot[np.arange(speed.shape[0]),np.arange(speed.shape[1]), speed] = 1
-
-data_time = []
-for month in xrange(3,4):
-  for day in xrange(1,32):
-    for hour in xrange(0,24):
-      for min in xrange(0,60,5):
-        data_time.append([month,day,hour,min])
-  
-for day in xrange(1,20):
-  for hour in xrange(0,24):
-    for min in xrange(0,60,5):
-      data_time.append([4,day,hour,min])
-    
-for hour in xrange(0,8):
-  for min in xrange(0,60,5):
-    data_time.append([4,20,hour,min])
-data_time.append([4,20,8,0])
-
 #Time*Number of Node
-inputs = np.swapaxes([data_time]*onehot.shape[1],0,1)
-print inputs
 #graph = graph.tolist()
 #print "GRAPH",graph
 # Some preprocessing
@@ -105,8 +80,8 @@ else:
 placeholders = {
     #'support': [tf.sparse_placeholder(tf.float32) for _ in range(num_supports)],
     'support': [tf.placeholder(tf.float32) for _ in range(num_supports)],
-    'features': tf.placeholder(tf.float32, shape=inputs.shape[1:]),
-    'labels': tf.placeholder(tf.float32, shape=onehot.shape[1:]),
+    'features': tf.placeholder(tf.float32, shape=speed.shape),
+    'labels': tf.placeholder(tf.float32, shape=speed.shape),
     #'labels': tf.placeholder(tf.float32, shape=onehot.shape[2:0:-1]),
     'dropout': tf.placeholder_with_default(0., shape=())
 }
@@ -169,6 +144,6 @@ for epoch in range(inputs.shape[0]-1):
 print "Optimization Finished!"
 
 # Testing
-test_cost, test_acc, test_duration = evaluate(inputs[-2], support, onehot[-d])
+test_cost, test_acc, test_duration = evaluate(inputs[-2], support, onehot[-2])
 print "Test set results:", "cost=", test_cost,\
       "accuracy=", test_acc, "time=", test_duration

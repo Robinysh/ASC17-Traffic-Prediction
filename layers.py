@@ -181,3 +181,44 @@ class GraphConvolution(Layer):
             output += self.vars['bias']
 
         return self.act(output)
+
+class FullyConnected(Layer):
+    """Graph convolution layer."""
+    def __init__(self, input_dim, number_of_features ,output_dim, placeholders, dropout=0.,
+                 sparse_inputs=False, act=tf.nn.relu, bias=False,
+                 featureless=False, **kwargs):
+        super(FullyConnected, self).__init__(**kwargs)
+
+        if dropout:
+            self.dropout = placeholders['dropout']
+        else:
+            self.dropout = 0.
+
+        self.act = act
+        self.support = placeholders['support']
+        self.sparse_inputs = sparse_inputs
+        self.featureless = featureless
+        self.bias = bias
+
+        with tf.variable_scope(self.name + '_vars'):
+            self.vars['weights_'] = glorot([(number_of_features, input_dim[1]), output_dim],
+                                                        name='weights_')
+            if self.bias:
+                self.vars['bias'] = zeros([output_dim], name='bias')
+
+        if self.logging:
+            self._log_vars()
+
+    def _call(self, inputs):
+        x = tf.concat(0, inputs)
+        # dropout
+        x = tf.nn.dropout(x, 1-self.dropout)
+
+        # Fully Connected
+        output = tf.matmul(x, self.vars['weights_'])
+        #print output
+        # bias
+        if self.bias:
+            output += self.vars['bias']
+
+        return self.act(output)

@@ -45,11 +45,19 @@ class Model(object):
 
         # Build sequential layer model
         self.activations.append(self.inputs)
+        hidden = [0]*self.number_of_features
+        for i, layer in enumerate(self.layers[:-1]):
+          hidden[i] = layer(self.activations[-1])
+        self.activations.append(hidden)
+        self.activations.append(self.layers[-1](self.activations[-1]))  
+        print "ACT",self.activations
+        """
         for layer in self.layers:
             hidden = layer(self.activations[-1])
             self.activations.append(hidden)
+        """
         self.outputs = self.activations[-1]
-
+        
         # Store model variables for easy access
         variables = tf.get_collection(tf.GraphKeys.VARIABLES, scope=self.name)
         self.vars = {var.name: var for var in variables}
@@ -137,6 +145,7 @@ class GCN(Model):
         super(GCN, self).__init__(**kwargs)
         self.inputs = placeholders['features']
         self.input_dim = input_dim
+        self.number_of_features = FLAGS.number_of_features
         # self.input_dim = self.inputs.get_shape().as_list()[1]  # To be supported in future Tensorflow versions
         self.output_dim = placeholders['labels'].get_shape().as_list()
         self.placeholders = placeholders
@@ -157,19 +166,21 @@ class GCN(Model):
         self.accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 
     def _build(self):
-        self.layers.append(GraphConvolution(input_dim=self.input_dim,
-                                            output_dim=(self.input_dim[0],FLAGS.hidden1),
-                                            placeholders=self.placeholders,
-                                            act=tf.nn.relu,
-                                            dropout=True,
-                                            logging=self.logging))
-
-        self.layers.append(GraphConvolution(input_dim=(self.input_dim[0],FLAGS.hidden1),
-                                            output_dim=self.output_dim,
-                                            placeholders=self.placeholders,
-                                            act=lambda x: x,
-                                            dropout=True,
-                                            logging=self.logging))
+        for _ in xrange(FLAGS.number_of_features):
+            self.layers.append(GraphConvolution(input_dim=self.input_dim,
+                                                output_dim=self.input_dim,
+                                                placeholders=self.placeholders,
+                                                act=lambda x: x,
+                                                dropout=True,
+                                                logging=self.logging))
+        
+        self.layers.append(FullyConnected(input_dim=self.input_dim,
+                                          number_of_features=self.number_of_features,
+                                          output_dim=self.output_dim,
+                                          placeholders=self.placeholders,
+                                          act=tf.nn.relu,
+                                          dropout=True,
+                                          logging=self.logging))
 
     def predict(self):
         return tf.nn.softmax(self.outputs)
