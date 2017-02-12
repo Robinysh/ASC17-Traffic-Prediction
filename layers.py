@@ -73,7 +73,6 @@ class Layer(object):
             if self.logging and not self.sparse_inputs:
                 tf.histogram_summary(self.name + '/inputs', inputs)
             outputs = self._call(inputs)
-            print "OUTS",outputs
             if self.logging:
                 tf.histogram_summary(self.name + '/outputs', outputs)
             return outputs
@@ -134,7 +133,7 @@ class GraphConvolution(Layer):
     """Graph convolution layer."""
     def __init__(self, input_dim, output_dim, placeholders, dropout=0.,
                  sparse_inputs=False, act=tf.nn.relu, bias=False,
-                 featureless=False, **kwargs):
+                 featureless=False, parallel=False, parallel_num=0, **kwargs):
         super(GraphConvolution, self).__init__(**kwargs)
 
         if dropout:
@@ -147,14 +146,14 @@ class GraphConvolution(Layer):
         self.sparse_inputs = sparse_inputs
         self.featureless = featureless
         self.bias = bias
-
+        self.parallel = parallel
+        self.parallel_num = parallel_num
         with tf.variable_scope(self.name + '_vars'):
-            print "GCN",[input_dim,output_dim]
             for i in range(len(self.support)):
                 self.vars['weights_' + str(i)] = glorot([input_dim, output_dim],
                                                         name='weights_' + str(i))
             if self.bias:
-                self.vars['bias'] = zeros((output_dim[1],), name='bias')
+                self.vars['bias'] = zeros(output_dim, name='bias')
 
         if self.logging:
             self._log_vars()
@@ -177,7 +176,6 @@ class GraphConvolution(Layer):
             support = dot(self.support[i], pre_sup, sparse=False)
             supports.append(support)
         output = tf.add_n(supports)
-        #print output
         # bias
         if self.bias:
             output += self.vars['bias']
@@ -201,23 +199,25 @@ class FullyConnected(Layer):
         self.sparse_inputs = sparse_inputs
         self.featureless = featureless
         self.bias = bias
-
         with tf.variable_scope(self.name + '_vars'):
-            self.vars['weights_'] = glorot([(number_of_features, input_dim[1]), output_dim],
-                                                        name='weights_')
+            self.vars['weights_'] = glorot([input_dim, output_dim],
+                                                name='weights_')
             if self.bias:
-                #self.vars['bias'] = zeros([output_dim], name='bias') #Not sure why implemented 
+                #self.vars['bias'] = zeros([output_dim], name='bias') #Not sure why is this implemented 
                 self.vars['bias'] = zeros(output_dim, name='bias')
 
         if self.logging:
             self._log_vars()
 
     def _call(self, inputs):
-        x = tf.concat(1, inputs)
+        #x = tf.concat(1, inputs)
+        x = inputs
         # dropout
         x = tf.nn.dropout(x, 1-self.dropout)
 
         # Fully Connected
+        
+        #output = tf.matmul(x, self.vars['weights_'])
         output = tf.matmul(x, self.vars['weights_'])
         #print output
         # bias
