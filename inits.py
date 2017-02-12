@@ -12,10 +12,10 @@ def glorot(shape, name=None):
     newShape = []
     for subshape in shape:
       if not isinstance(subshape, tuple):
-        subshape = (subshape,1)
+        #Verticle shape: [[1],[2]]
+        subshape = (subshape, 1)
       newShape.append(subshape)
     shape = newShape
-    print 'SHAPE', shape 
     weight_shape = (shape[0][1], shape[1][1])
     init_range = np.sqrt(6.0/sum(weight_shape))
     #init_range = np.sqrt(6.0/(shape[0]+shape[1]))

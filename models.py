@@ -70,6 +70,32 @@ class Model(object):
           #Convert to vector: shape(N, 1)
           self.activations[-1].append(tf.expand_dims(input,1))
           for layer in self.layers:
+            #If nested (i.e. GC)
+            if isinstance(layer, list):
+              outputs = []
+              for sublayer in layer:
+                sub_output = [self.activations[-1][-1]]
+                for subsublayer in sublayer:
+                  sub_output.append(subsublayer(sub_output[-1]))
+                #Get last output of last trained batch
+                #outputs.append(sublayer(self.activations[-1][-1]))
+                outputs.append(sub_output[-1])
+              #Output: N X F
+              self.activations[-1].append(tf.concat(1, outputs))
+
+            #If not nested (i.e. FC)
+            else:
+              output = layer(self.activations[-1][-1])
+              self.activations[-1].append(output)
+        
+        """
+        self.inputs = tf.unstack(self.inputs, axis=0)
+        for input in self.inputs: 
+          # Build sequential layer model
+          self.activations.append([])
+          #Convert to vector: shape(N, 1)
+          self.activations[-1].append(tf.expand_dims(input,1))
+          for layer in self.layers:
               #If nested (i.e. GC)
               if isinstance(layer, list):
                 outputs = []
@@ -83,6 +109,8 @@ class Model(object):
               else:
                 output = layer(self.activations[-1][-1])
                 self.activations[-1].append(output)
+        """
+        
         #Output: B X N
         self.outputs = tf.transpose(tf.concat(1, np.array(self.activations)[:,-1].tolist()))
         
@@ -129,10 +157,11 @@ class Model(object):
         print("Model restored from file: %s" % save_path)
 
 class GCN(Model):
-    def __init__(self, placeholders, input_dim, **kwargs):
+    def __init__(self, placeholders, input_dim, hiddenUnits, **kwargs):
         super(GCN, self).__init__(**kwargs)
         self.inputs = placeholders['features']
         self.input_dim = input_dim
+        self.hiddenUnits = [1]+hiddenUnits+[1]
         self.number_of_features = FLAGS.number_of_features
         # self.input_dim = self.inputs.get_shape().as_list()[1]  # To be supported in future Tensorflow versions
         self.output_dim = placeholders['labels'].get_shape().as_list()
@@ -167,18 +196,20 @@ class GCN(Model):
 
     def _build(self):
         print "INOUT" , self.input_dim[1]
-        self.layers.append([GraphConvolution(input_dim=self.input_dim[1],
-                                             output_dim=self.input_dim[1],
+        self.layers.append([[GraphConvolution(input_dim=(self.input_dim[1], self.hiddenUnits[i]),
+                                             output_dim=(self.input_dim[1], self.hiddenUnits[i+1]),
                                              placeholders=self.placeholders,
-                                             act=tf.nn.relu,
+                                             act=tf.nn.relu if i==FLAGS.number_of_layers else lambda x:x,
                                              dropout=True,
                                              bias=True,
                                              logging=self.logging,
                                              parallel=True,
-                                             parallel_num=FLAGS.number_of_features) for _ in xrange(FLAGS.number_of_features)])
+                                             parallel_num=FLAGS.number_of_features)\
+                              for i in xrange(FLAGS.number_of_layers)]\
+                          for _ in xrange(FLAGS.number_of_features)])
         self.layers.append(FullyConnected(input_dim=(self.input_dim[1], self.number_of_features),
                                         number_of_features=self.number_of_features,
-                                        output_dim=self.output_dim[1],
+                                        output_dim=(self.output_dim[1],1),
                                         placeholders=self.placeholders,
                                         act=lambda x: x,
                                         dropout=True,

@@ -28,18 +28,18 @@ tf.set_random_seed(seed)
 # Settings
 flags = tf.app.flags
 FLAGS = flags.FLAGS
-flags.DEFINE_string('model', 'gcn', 'Model string.')  # 'gcn', 'gcn_cheby', 'dense'
-flags.DEFINE_float('learning_rate', 1e-5, 'Initial learning rate.')
-flags.DEFINE_integer('hidden1', 1024, 'Number of units in hidden layer 1.')
+flags.DEFINE_string('model', 'gcn', 'Model string.')  # 'gcn', 'gcn_cheby',
+flags.DEFINE_float('learning_rate', 4e-6, 'Initial learning rate.')
 flags.DEFINE_float('dropout', 0.01, 'Dropout rate (1 - keep probability).')
-flags.DEFINE_float('weight_decay', 1e-5, 'Weight for L2 loss on embedding matrix.')
-flags.DEFINE_integer('number_of_features', 10, 'Number of features for the graph convolution layer.')
+flags.DEFINE_float('weight_decay', 1e-1, 'Weight for L2 loss on embedding matrix.')
+flags.DEFINE_integer('number_of_features', 10, 'Number of features for graph convolution')
+flags.DEFINE_integer('number_of_layers', 3, 'Number of Layers for the graph convolution.')
 flags.DEFINE_integer('batch_size', 5, 'Number of timesteps to feed each time.')
-flags.DEFINE_integer('early_stopping', 10, 'Tolerance for early stopping (# of epochs).')
-flags.DEFINE_integer('max_degree', 3, 'Maximum Chebyshev polynomial degree.')
-flags.DEFINE_integer('print_interval', 50, 'Number of runs per print.')
-flags.DEFINE_integer('epoch', 1, 'Number of epoch.')
-#adj, features, y_train, y_val, y_test, train_mask, val_mask, test_mask = load_data(FLAGS.dataset)
+flags.DEFINE_integer('early_stopping', 10, 'NOT YET IMPLEMENTED Tolerance for early stopping (# of epochs).')
+flags.DEFINE_integer('print_interval', 10, 'Number of runs per print.')
+flags.DEFINE_integer('epoch',10 , 'Number of epochs.')
+flags.DEFINE_integer('amount_of_testing_data', 20, 'NOT YET IMPLEMENTED Amount of testing data for validationa')
+hiddenUnits = [64,64]
 
 #adjecency matrix
 graph = [[ 0 for i in range(len(graph_list))] for j in range(len(graph_list))]
@@ -62,18 +62,12 @@ speed = np.array(speed).T
 #features = preprocess_features(np.asarray(inputs))
 if FLAGS.model == 'gcn':
     support = [preprocess_adj(graph)]
-    print "SUPPORT"
-    print support
     num_supports = 1
     model_func = GCN
 elif FLAGS.model == 'gcn_cheby':
     support = chebyshev_polynomials(graph, FLAGS.max_degree)
     num_supports = 1 + FLAGS.max_degree
     model_func = GCN
-elif FLAGS.model == 'dense':
-    support = [preprocess_adj(adj)]  # Not used
-    num_supports = 1
-    model_func = MLP
 else:
     raise ValueError('Invalid argument for model: ' + str(FLAGS.model))
 
@@ -88,7 +82,7 @@ placeholders = {
 }
 
 #Create Model
-model = model_func(placeholders, input_dim=(FLAGS.batch_size, speed.shape[1]), logging=False)
+model = model_func(placeholders, input_dim=(FLAGS.batch_size, speed.shape[1]), hiddenUnits=hiddenUnits, logging=False)
 
 # Initialize session
 sess = tf.Session()
@@ -106,21 +100,22 @@ sess.run(tf.global_variables_initializer())
 
 cost_val = []
 # Train model
-#for epoch in range(FLAGS.epochs
+number_of_runs = int(math.floor(len(speed[1])/FLAGS.batch_size)) -1
+print number_of_runs
 for epoch in xrange(FLAGS.epoch):
-  for batch_position in xrange(1, int(math.floor(len(speed[1]/FLAGS.batch_size)))):
+  for batch_position in xrange(0, number_of_runs):
       t = time.time()
+      
+      #batch = speed[batch_position*FLAGS.batch_size:(batch_position+1)*FLAGS.batch_size]
       batch = []
       for i in xrange(FLAGS.batch_size*2):
-        batch.append(speed[epoch*FLAGS.batch_size + i])
+        batch.append(speed[batch_position*FLAGS.batch_size + i])
       
       # Construct feed dictionary
       feed_dict = construct_feed_dict(batch[:FLAGS.batch_size], support, batch[FLAGS.batch_size:], placeholders)
-      #print '\n\n\nFEED', feed_dict,'\n\n\n\n\n\n'
       feed_dict.update({placeholders['dropout']: FLAGS.dropout})
 
       # Training step
-      #sess.run([model.opt_op, model.loss, model.accuracy], feed_dict=feed_dict)
       outs = sess.run([model.opt_op, model.loss, model.accuracy, model.outputs, model.cross], feed_dict=feed_dict)
       #print "OUTS", outs
 
@@ -130,23 +125,43 @@ for epoch in xrange(FLAGS.epoch):
       
       # Print results
       if batch_position%FLAGS.print_interval==0:
-        print "Epoch:", '%03d' % (epoch + 1), "BatchPos:", batch_position, "train_loss=%.5f"%sum(outs[1]),\
-              "train_acc=%.5f"%outs[2], "loss_diff=%.5f"%(sum(outs[1])-sum(cost)),\
-              "acc_diff=%.5f" %(outs[2]-acc), "time=%.5f" %(time.time() - t)
-        #print "Outputs", outs[3],"\nLabels",batch[FLAGS.batch_size:][0:5],"\nInput",batch[:FLAGS.batch_size][0:5],"\nCross",outs[4][0:5]
-        print "Outputs", outs[3][0][0:5],"\nLabels",batch[FLAGS.batch_size:][0][0:5],"\nInput",batch[:FLAGS.batch_size][0][0:5],"\nCross",outs[4][0:5]
+        print "Epoch:", '%03d' % (epoch + 1),\
+              "BatchPos:", batch_position,\
+              "train_loss=%.5f"%sum(outs[1]),\
+              "train_acc=%.5f"%outs[2],\
+              "loss_diff=%.5f"%(sum(outs[1])-sum(cost)),\
+              "acc_diff=%.5f" %(outs[2]-acc),\
+              "time=%.5f" %(time.time() - t),\
+            "\nOutputs", outs[3][0][0:5],\
+            "\nLabels",batch[FLAGS.batch_size:][0][0:5],\
+            "\nInput",batch[:FLAGS.batch_size][0][0:5],\
+            "\nCross",outs[4][0:5], "\n"
       
-        record.append(str("Epoch:" +  str('%03d' % (epoch + 1)) + "BatchPos:", str(batch_position), str("train_loss=%.5f"%sum(outs[1])) + "Outputs" +  str(outs[3][0][0:5]) +"\nLabels",str(batch[FLAGS.batch_size:][0][0:5])+"\nInput"+str(batch[:FLAGS.batch_size][0][0:5])+ "\nCross",str(outs[4][0:5])))
+        record.append(''.join(map(str,
+            ("Epoch: " , '%d' % (epoch + 1),
+            " BatchPos: ", batch_position,
+            " train_loss: %.5f"%sum(outs[1]),
+           "\nOutputs: ", outs[3][0][0:20],
+           "\nLabels",batch[FLAGS.batch_size:][0][0:20],
+           "\nInput", batch[:FLAGS.batch_size][0][0:20],
+           "\nCross",outs[4][0:5],"\n\n"))))
       """
       if epoch > FLAGS.early_stopping and cost_val[-1] > np.mean(cost_val[-(FLAGS.early_stopping+1):-1]):
           print "Early stopping..."
           break
       """
-  print "Optimization Finished!"
-"""
+
 # Testing
-test_cost, test_acc, test_duration = evaluate(inputs[-2], support, onehot[-2])
-print "Test set results:", "cost=", test_cost,\
-      "accuracy=", test_acc, "time=", test_duration
-"""
-cpk.dump(record, load("output.cpk", "rb"))
+batch = speed[-2*FLAGS.batch_size:]
+
+#for i in xrange(FLAGS.batch_size*2):
+#  batch.append(speed[-i])
+ 
+test_cost, test_acc, test_duration = evaluate(batch[:FLAGS.batch_size], support, batch[FLAGS.batch_size:])
+print "Test set results:", "cost=", test_cost, "accuracy=", test_acc, "time=", test_duration
+record.append(''.join(map(str, 
+      ("Test set results:", "cost=", test_cost,
+      "accuracy=", test_acc, "time=", test_duration))))
+file = open("output.txt", "w+b")
+for el in record:
+  print>>file, el
