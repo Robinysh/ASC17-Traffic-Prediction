@@ -196,14 +196,12 @@ class FullyConnected(Layer):
 
         self.act = act
         self.support = placeholders['support']
-        self.sparse_inputs = sparse_inputs
-        self.featureless = featureless
         self.bias = bias
+        self.input_dim = input_dim
         with tf.variable_scope(self.name + '_vars'):
             self.vars['weights_'] = glorot([input_dim, output_dim],
                                                 name='weights_')
             if self.bias:
-                #self.vars['bias'] = zeros([output_dim], name='bias') #Not sure why is this implemented 
                 self.vars['bias'] = zeros(output_dim, name='bias')
 
         if self.logging:
@@ -216,10 +214,10 @@ class FullyConnected(Layer):
         x = tf.nn.dropout(x, 1-self.dropout)
 
         # Fully Connected
-        
-        #output = tf.matmul(x, self.vars['weights_'])
-        output = tf.matmul(x, self.vars['weights_'])
-        #print output
+        if len(self.input_dim) == 3: 
+          output = tf.einsum('ijk,jk->i',x, self.vars['weights_'])
+        else:
+          output = tf.matmul(x, self.vars['weights_'])
         # bias
         if self.bias:
             output += self.vars['bias']

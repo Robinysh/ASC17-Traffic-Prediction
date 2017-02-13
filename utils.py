@@ -141,11 +141,12 @@ def preprocess_adj(adj):
 #    return sparse_to_tuple(adj_normalized)
 #
 
-def construct_feed_dict(features, support, labels, placeholders):
+def construct_feed_dict(features, time_features, support, labels, placeholders):
     """Construct feed dictionary."""
     feed_dict = dict()
     feed_dict.update({placeholders['labels']: labels})
-    feed_dict.update({placeholders['features']: features})
+    feed_dict.update({placeholders['GC_features']: features})
+    feed_dict.update({placeholders['FC_features']: time_features})
     feed_dict.update({placeholders['support'][i]: support[i] for i in range(len(support))})
     return feed_dict
 

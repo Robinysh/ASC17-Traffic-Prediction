@@ -62,9 +62,10 @@ class Model(object):
             #self.activations.append(hidden)
             self.activations.append(self.layers[i](self.activations[-1]))  
         """
-        #Unpack Batch inputs 
+        #Unpack Batch inputs from tensorf to list of tensors
         self.inputs = tf.unstack(self.inputs, axis=0)
-        for input in self.inputs: 
+        self.time_inputs = tf.unstack(self.time_inputs, axis=0)
+        for i, input in enumerate(self.inputs): 
           # Build sequential layer model
           self.activations.append([])
           #Convert to vector: shape(N, 1)
@@ -85,7 +86,16 @@ class Model(object):
 
             #If not nested (i.e. FC)
             else:
-              output = layer(self.activations[-1][-1])
+              #F*N*(Speed+Time) -> N*1
+              print "TIMESHAPE", tf.expand_dims(tf.expand_dims(self.time_inputs[i], 0),0)
+              print "ACTSHAPE", self.activations[-1][-1].get_shape().as_list()+[1]
+              #FC_input = tf.concat(2, [tf.expand_dims(self.activations[-1][-1], 2),
+              #              tf.tile(tf.expand_dims(self.time_inputs[i], 0), 
+              #                self.activations[-1][-1].get_shape().as_list()+[1])])
+              FC_input = tf.concat(2, [tf.expand_dims(self.activations[-1][-1], 2),
+                            tf.tile(tf.expand_dims(tf.expand_dims(self.time_inputs[i], 0),0), 
+                              self.activations[-1][-1].get_shape().as_list()+[1])])
+              output = layer(FC_input)
               self.activations[-1].append(output)
         
         """
@@ -112,8 +122,8 @@ class Model(object):
         """
         
         #Output: B X N
-        self.outputs = tf.transpose(tf.concat(1, np.array(self.activations)[:,-1].tolist()))
-        
+        self.outputs = np.array(self.activations)[:,-1].tolist()
+        print "Outputs", self.outputs 
         #print "ACT",self.activations
         """
         for layer in self.layers:
@@ -157,10 +167,12 @@ class Model(object):
         print("Model restored from file: %s" % save_path)
 
 class GCN(Model):
-    def __init__(self, placeholders, input_dim, hiddenUnits, **kwargs):
+    def __init__(self, placeholders, input_dim, time_input_dim, hiddenUnits, **kwargs):
         super(GCN, self).__init__(**kwargs)
-        self.inputs = placeholders['features']
+        self.inputs = placeholders['GC_features']
+        self.time_inputs = placeholders['FC_features']
         self.input_dim = input_dim
+        self.time_input_dim = time_input_dim
         self.hiddenUnits = [1]+hiddenUnits+[1]
         self.number_of_features = FLAGS.number_of_features
         # self.input_dim = self.inputs.get_shape().as_list()[1]  # To be supported in future Tensorflow versions
@@ -207,35 +219,16 @@ class GCN(Model):
                                              parallel_num=FLAGS.number_of_features)\
                               for i in xrange(FLAGS.number_of_layers)]\
                           for _ in xrange(FLAGS.number_of_features)])
-        self.layers.append(FullyConnected(input_dim=(self.input_dim[1], self.number_of_features),
-                                        number_of_features=self.number_of_features,
-                                        output_dim=(self.output_dim[1],1),
-                                        placeholders=self.placeholders,
-                                        act=lambda x: x,
-                                        dropout=True,
-                                        bias=True,
-                                        logging=self.logging))
-        """ 
-        for _ in FLAG.number_of_features:
-          self.layers.append(GraphConvolution(input_dim=self.input_dim[1],
-                                                output_dim=self.input_dim[1],
-                                                placeholders=self.placeholders,
-                                                act=tf.nn.relu,
-                                                dropout=True,
-                                                bias=True,
-                                                logging=self.logging,
-                                                parallel=True,
-                                                parallel_num=FLAGS.number_of_features))
 
-        self.layers.append(FullyConnected(input_dim=(self.number_of_features,)+ self.input_dim[1],
+        self.layers.append(FullyConnected(input_dim=(self.input_dim[1], self.number_of_features, 1 + self.time_input_dim[1]),
                                         number_of_features=self.number_of_features,
-                                        output_dim=self.output_dim,
+                                        output_dim=(self.output_dim[1],),
                                         placeholders=self.placeholders,
                                         act=lambda x: x,
                                         dropout=True,
                                         bias=True,
                                         logging=self.logging))
       
-        """   
+           
     def predict(self):
         return tf.nn.softmax(self.outputs)

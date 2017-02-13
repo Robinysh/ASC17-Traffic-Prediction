@@ -16,7 +16,11 @@ def glorot(shape, name=None):
         subshape = (subshape, 1)
       newShape.append(subshape)
     shape = newShape
-    weight_shape = (shape[0][1], shape[1][1])
+    print 'SHAPE', shape
+    if len(shape[0]) == 3: #Hard Code
+      weight_shape = (shape[0][1], shape[0][2]) 
+    else:
+      weight_shape = (shape[0][1], shape[1][1])
     init_range = np.sqrt(6.0/sum(weight_shape))
     #init_range = np.sqrt(6.0/(shape[0]+shape[1]))
     initial = tf.random_uniform(weight_shape, minval=-init_range, maxval=init_range, dtype=tf.float32)

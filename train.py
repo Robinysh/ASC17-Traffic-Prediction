@@ -13,8 +13,8 @@ import csv
 csv.field_size_limit(sys.maxsize)
 
 ##Input data
-graph_raw = cpk.load(open('data/graph.cpk', 'rb'))
-speed_raw = csv.reader(open('data/speeds.csv','rb'),delimiter='\n')
+graph_raw  = cpk.load(open('data/graph.cpk', 'rb'))
+speed_raw  = csv.reader(open('data/speeds.csv','rb'),delimiter='\n')
 graph_list = cpk.load(open('data/graphlist.cpk','rb'))
 
 #Record array
@@ -29,18 +29,22 @@ tf.set_random_seed(seed)
 flags = tf.app.flags
 FLAGS = flags.FLAGS
 flags.DEFINE_string('model', 'gcn', 'Model string.')  # 'gcn', 'gcn_cheby',
-flags.DEFINE_float('learning_rate', 4e-6, 'Initial learning rate.')
+flags.DEFINE_float('learning_rate', 2e-6, 'Initial learning rate.')
 flags.DEFINE_float('dropout', 0.01, 'Dropout rate (1 - keep probability).')
 flags.DEFINE_float('weight_decay', 1e-1, 'Weight for L2 loss on embedding matrix.')
-flags.DEFINE_integer('number_of_features', 10, 'Number of features for graph convolution')
-flags.DEFINE_integer('number_of_layers', 3, 'Number of Layers for the graph convolution.')
+flags.DEFINE_integer('number_of_features', 5, 'Number of features for graph convolution')
+flags.DEFINE_integer('number_of_layers', 2, 'Number of Layers for the graph convolution.')
 flags.DEFINE_integer('batch_size', 5, 'Number of timesteps to feed each time.')
 flags.DEFINE_integer('early_stopping', 10, 'NOT YET IMPLEMENTED Tolerance for early stopping (# of epochs).')
 flags.DEFINE_integer('print_interval', 10, 'Number of runs per print.')
 flags.DEFINE_integer('epoch',10 , 'Number of epochs.')
 flags.DEFINE_integer('amount_of_testing_data', 20, 'NOT YET IMPLEMENTED Amount of testing data for validationa')
-hiddenUnits = [64,64]
+hiddenUnits = [64]
 
+
+"""""""""""""""""""""
+Data Preprocessing
+"""""""""""""""""""""
 #adjecency matrix
 graph = [[ 0 for i in range(len(graph_list))] for j in range(len(graph_list))]
 
@@ -55,42 +59,99 @@ next(speed_raw)
 for row in speed_raw:
   speed.append([int(el) for el in row[0].split(',')[1:-1]]) 
 speed = np.array(speed).T
-#speed = np.swapaxes(np.asarray(speed),0,1)
-#graph = graph.tolist()
-#print "GRAPH",graph
-# Some preprocessing
-#features = preprocess_features(np.asarray(inputs))
-if FLAGS.model == 'gcn':
-    support = [preprocess_adj(graph)]
+
+data_time = []
+for month in xrange(3,4):
+  for day in xrange(1,32):
+    day_onehot        = [0]*7
+    day_onehot[day//7] = 1 
+    week              = day % 7
+    for hour in xrange(0,24):
+      for min in xrange(0,60,5):
+        hour_onehot               = [0]*24
+        hour_onehot[hour]         = hour - min/60
+        hour_onehot[(hour+1)%24 ] = min/60
+        data_time.append([week] + day_onehot + hour_onehot)
+ 
+for day in xrange(1,20):
+  day_onehot        = [0]*7
+  day_onehot[day//7] = 1 
+  week              = day % 7
+  for hour in xrange(0,24):
+    for min in xrange(0,60,5):
+      hour_onehot               = [0]*24
+      hour_onehot[hour]         = hour - min/60
+      hour_onehot[(hour+1)%24 ] = min/60
+      data_time.append([week] + day_onehot + hour_onehot)
+
+day_onehot       = [0]*7
+day_onehot[21//7] = 1 
+week             = 21 % 7 
+for hour in xrange(0,8):
+  for min in xrange(0,60,5):
+    hour_onehot               = [0]*24
+    hour_onehot[hour]         = hour - min/60
+    hour_onehot[(hour+1)%24 ] = min/60
+    data_time.append([week] + day_onehot + hour_onehot)
+
+hour_onehot    = [0]*24
+hour_onehot[8] = 1
+data_time.append([week] + day_onehot + hour_onehot)
+
+"""
+data_time = []
+for month in xrange(3,4):
+  for day in xrange(1,32):
+    for hour in xrange(0,24):
+      for min in xrange(0,60,5):
+        data_time.append([month,day,hour,min])
+  
+for day in xrange(1,20):
+  for hour in xrange(0,24):
+    for min in xrange(0,60,5):
+      data_time.append([4,day,hour,min])
+    
+for hour in xrange(0,8):
+  for min in xrange(0,60,5):
+    data_time.append([4,20,hour,min])
+data_time.append([4,20,8,0])
+"""
+""""""""""""""""""
+
+if FLAGS.model   == 'gcn':
+    support      = [preprocess_adj(graph)]
     num_supports = 1
-    model_func = GCN
+    model_func   = GCN
 elif FLAGS.model == 'gcn_cheby':
-    support = chebyshev_polynomials(graph, FLAGS.max_degree)
+    support      = chebyshev_polynomials(graph, FLAGS.max_degree)
     num_supports = 1 + FLAGS.max_degree
-    model_func = GCN
+    model_func   = GCN
 else:
     raise ValueError('Invalid argument for model: ' + str(FLAGS.model))
 
 # Define placeholders
 placeholders = {
-    #'support': [tf.sparse_placeholder(tf.float32) for _ in range(num_supports)],
-    'support': [tf.placeholder(tf.float32) for _ in range(num_supports)],
-    'features': tf.placeholder(tf.float32, shape=(FLAGS.batch_size, speed.shape[1])),
-    'labels': tf.placeholder(tf.float32, shape=(FLAGS.batch_size, speed.shape[1])),
-    #'labels': tf.placeholder(tf.float32, shape=onehot.shape[2:0:-1]),
-    'dropout': tf.placeholder_with_default(0., shape=())      
+    'support' : [tf.placeholder(tf.float32) for _ in range(num_supports)],
+    'GC_features': tf.placeholder(tf.float32, shape=(FLAGS.batch_size, speed.shape[1])),
+    'FC_features': tf.placeholder(tf.float32, shape=(FLAGS.batch_size, len(data_time[0]))),
+    'labels'  : tf.placeholder(tf.float32, shape=(FLAGS.batch_size, speed.shape[1])),
+    'dropout' : tf.placeholder_with_default(0., shape=())      
 }
 
 #Create Model
-model = model_func(placeholders, input_dim=(FLAGS.batch_size, speed.shape[1]), hiddenUnits=hiddenUnits, logging=False)
+model = model_func(placeholders,
+                   input_dim      = (FLAGS.batch_size, speed.shape[1]),
+                   time_input_dim = (FLAGS.batch_size, len(data_time[0])),
+                   hiddenUnits    = hiddenUnits,
+                   logging        = False)
 
 # Initialize session
 sess = tf.Session()
 
 # Define model evaluation function
-def evaluate(features, support, labels):
+def evaluate(features, support, time_features, labels):
     t_test = time.time()
-    feed_dict_val = construct_feed_dict(features, support, labels,placeholders)
+    feed_dict_val = construct_feed_dict(features, support, time_features, labels, placeholders)
     outs_val = sess.run([model.loss, model.accuracy], feed_dict=feed_dict_val)
     return outs_val[0], outs_val[1], (time.time() - t_test)
 
@@ -100,19 +161,22 @@ sess.run(tf.global_variables_initializer())
 
 cost_val = []
 # Train model
-number_of_runs = int(math.floor(len(speed[1])/FLAGS.batch_size)) -1
+number_of_runs = int(math.floor(len(speed[1])/FLAGS.batch_size)) - 1
 print number_of_runs
 for epoch in xrange(FLAGS.epoch):
   for batch_position in xrange(0, number_of_runs):
       t = time.time()
       
       #batch = speed[batch_position*FLAGS.batch_size:(batch_position+1)*FLAGS.batch_size]
-      batch = []
+      speed_batch = []
+      time_batch = []
       for i in xrange(FLAGS.batch_size*2):
-        batch.append(speed[batch_position*FLAGS.batch_size + i])
+        speed_batch.append(speed[batch_position*FLAGS.batch_size + i])
+      for i in xrange(FLAGS.batch_size):
+        time_batch.append(data_time[batch_position*FLAGS.batch_size + i])
       
       # Construct feed dictionary
-      feed_dict = construct_feed_dict(batch[:FLAGS.batch_size], support, batch[FLAGS.batch_size:], placeholders)
+      feed_dict = construct_feed_dict(speed_batch[:FLAGS.batch_size], time_batch, support, speed_batch[FLAGS.batch_size:], placeholders)
       feed_dict.update({placeholders['dropout']: FLAGS.dropout})
 
       # Training step
@@ -120,7 +184,7 @@ for epoch in xrange(FLAGS.epoch):
       #print "OUTS", outs
 
       # Validation
-      cost, acc, duration = evaluate(batch[:FLAGS.batch_size], support, batch[FLAGS.batch_size:])
+      cost, acc, duration = evaluate(speed_batch[:FLAGS.batch_size], time_batch, support, speed_batch[FLAGS.batch_size:])
       cost_val.append(cost)
       
       # Print results
@@ -133,8 +197,8 @@ for epoch in xrange(FLAGS.epoch):
               "acc_diff=%.5f" %(outs[2]-acc),\
               "time=%.5f" %(time.time() - t),\
             "\nOutputs", outs[3][0][0:5],\
-            "\nLabels",batch[FLAGS.batch_size:][0][0:5],\
-            "\nInput",batch[:FLAGS.batch_size][0][0:5],\
+            "\nLabels",speed_batch[FLAGS.batch_size:][0][0:5],\
+            "\nInput",speed_batch[:FLAGS.batch_size][0][0:5],\
             "\nCross",outs[4][0:5], "\n"
       
         record.append(''.join(map(str,
@@ -142,8 +206,8 @@ for epoch in xrange(FLAGS.epoch):
             " BatchPos: ", batch_position,
             " train_loss: %.5f"%sum(outs[1]),
            "\nOutputs: ", outs[3][0][0:20],
-           "\nLabels",batch[FLAGS.batch_size:][0][0:20],
-           "\nInput", batch[:FLAGS.batch_size][0][0:20],
+           "\nLabels",speed_batch[FLAGS.batch_size:][0][0:20],
+           "\nInput", speed_batch[:FLAGS.batch_size][0][0:20],
            "\nCross",outs[4][0:5],"\n\n"))))
       """
       if epoch > FLAGS.early_stopping and cost_val[-1] > np.mean(cost_val[-(FLAGS.early_stopping+1):-1]):
@@ -152,12 +216,12 @@ for epoch in xrange(FLAGS.epoch):
       """
 
 # Testing
-batch = speed[-2*FLAGS.batch_size:]
-
+speed_batch = speed[-2*FLAGS.batch_size:]
+time_batch = data_time[-2*FLAGS.batch_size:-FLAGS.batch_size]
 #for i in xrange(FLAGS.batch_size*2):
-#  batch.append(speed[-i])
+#  speed_batch.append(speed[-i])
  
-test_cost, test_acc, test_duration = evaluate(batch[:FLAGS.batch_size], support, batch[FLAGS.batch_size:])
+test_cost, test_acc, test_duration = evaluate(speed_batch[:FLAGS.batch_size], time_batch, support, speed_batch[FLAGS.batch_size:])
 print "Test set results:", "cost=", test_cost, "accuracy=", test_acc, "time=", test_duration
 record.append(''.join(map(str, 
       ("Test set results:", "cost=", test_cost,
