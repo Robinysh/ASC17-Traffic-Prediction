@@ -24,22 +24,23 @@ seed = 123
 np.random.seed(seed)
 tf.set_random_seed(seed)
 
-
-# Settings
+"""""""""""""""""""""
+Hyperparameters
+"""""""""""""""""""""
 flags = tf.app.flags
 FLAGS = flags.FLAGS
 flags.DEFINE_string('model', 'gcn', 'Model string.')  # 'gcn', 'gcn_cheby',
-flags.DEFINE_float('learning_rate', 2e-6, 'Initial learning rate.')
+flags.DEFINE_float('learning_rate', 1e-4, 'Initial learning rate.')
 flags.DEFINE_float('dropout', 0.01, 'Dropout rate (1 - keep probability).')
 flags.DEFINE_float('weight_decay', 1e-1, 'Weight for L2 loss on embedding matrix.')
-flags.DEFINE_integer('number_of_features', 5, 'Number of features for graph convolution')
-flags.DEFINE_integer('number_of_layers', 2, 'Number of Layers for the graph convolution.')
+flags.DEFINE_integer('number_of_features', 20, 'Number of features for graph convolution')
+flags.DEFINE_integer('number_of_layers', 3, 'Number of Layers for the graph convolution.')
 flags.DEFINE_integer('batch_size', 5, 'Number of timesteps to feed each time.')
 flags.DEFINE_integer('early_stopping', 10, 'NOT YET IMPLEMENTED Tolerance for early stopping (# of epochs).')
 flags.DEFINE_integer('print_interval', 10, 'Number of runs per print.')
 flags.DEFINE_integer('epoch',10 , 'Number of epochs.')
 flags.DEFINE_integer('amount_of_testing_data', 20, 'NOT YET IMPLEMENTED Amount of testing data for validationa')
-hiddenUnits = [64]
+hiddenUnits = [64, 64]
 
 
 """""""""""""""""""""
@@ -168,47 +169,66 @@ for epoch in xrange(FLAGS.epoch):
       t = time.time()
       
       #batch = speed[batch_position*FLAGS.batch_size:(batch_position+1)*FLAGS.batch_size]
+      #B*N
       speed_batch = []
       time_batch = []
-      for i in xrange(FLAGS.batch_size*2):
+      for i in xrange(FLAGS.batch_size + 1):
         speed_batch.append(speed[batch_position*FLAGS.batch_size + i])
       for i in xrange(FLAGS.batch_size):
         time_batch.append(data_time[batch_position*FLAGS.batch_size + i])
       
       # Construct feed dictionary
-      feed_dict = construct_feed_dict(speed_batch[:FLAGS.batch_size], time_batch, support, speed_batch[FLAGS.batch_size:], placeholders)
+      feed_dict = construct_feed_dict(speed_batch[:-1], time_batch, support, speed_batch[1:], placeholders)
       feed_dict.update({placeholders['dropout']: FLAGS.dropout})
 
       # Training step
       outs = sess.run([model.opt_op, model.loss, model.accuracy, model.outputs, model.cross], feed_dict=feed_dict)
-      #print "OUTS", outs
 
+      #print "TEST", sess.run([model.outputs, model.placeholders['labels']], feed_dict=feed_dict)
       # Validation
-      cost, acc, duration = evaluate(speed_batch[:FLAGS.batch_size], time_batch, support, speed_batch[FLAGS.batch_size:])
+      cost, acc, duration = evaluate(speed_batch[:-1], time_batch, support, speed_batch[1:])
       cost_val.append(cost)
-      
+      """ 
       # Print results
       if batch_position%FLAGS.print_interval==0:
         print "Epoch:", '%03d' % (epoch + 1),\
               "BatchPos:", batch_position,\
-              "train_loss=%.5f"%sum(outs[1]),\
               "train_acc=%.5f"%outs[2],\
-              "loss_diff=%.5f"%(sum(outs[1])-sum(cost)),\
               "acc_diff=%.5f" %(outs[2]-acc),\
               "time=%.5f" %(time.time() - t),\
-            "\nOutputs", outs[3][0][0:5],\
-            "\nLabels",speed_batch[FLAGS.batch_size:][0][0:5],\
-            "\nInput",speed_batch[:FLAGS.batch_size][0][0:5],\
-            "\nCross",outs[4][0:5], "\n"
+              "\nOutputs", outs[3],\
+            "\nLabels",speed_batch[1],\
+            "\nInput",speed_batch[0][0:10],\
+            "\nCross",outs[4], "\n"
+        print "DIFF", outs[-1] 
+        record.append(''.join(map(str,
+            ("Epoch: " , '%d' % (epoch + 1),
+            " BatchPos: ", batch_position,
+           "\nOutputs: ", outs[3][0][0:20],
+           "\nLabels",speed_batch[1][0:20],
+           "\nInput", speed_batch[0][0:20],
+           "\nCross",outs[4],"\n\n"))))
+      """
+      if batch_position%FLAGS.print_interval==0:
+        print "Epoch:", '%03d' % (epoch + 1),\
+              "BatchPos:", batch_position,\
+              "train_loss=%.5f"%outs[1],\
+              "train_acc=%.5f"%outs[2],\
+              "loss_diff=%.5f"%(outs[1]-cost),\
+              "acc_diff=%.5f" %(outs[2]-acc),\
+              "time=%.5f" %(time.time() - t),\
+              "\nOutputs", outs[3][0][0:20],\
+              "\nLabels",speed_batch[1][0:20],\
+              "\nInput",speed_batch[0][0:20],"\n\n"
       
         record.append(''.join(map(str,
             ("Epoch: " , '%d' % (epoch + 1),
             " BatchPos: ", batch_position,
-            " train_loss: %.5f"%sum(outs[1]),
+            " train_loss: %.5f"%outs[1],
            "\nOutputs: ", outs[3][0][0:20],
-           "\nLabels",speed_batch[FLAGS.batch_size:][0][0:20],
-           "\nInput", speed_batch[:FLAGS.batch_size][0][0:20],
-           "\nCross",outs[4][0:5],"\n\n"))))
+           "\nLabels",speed_batch[1][0:20],
+           "\nInput", speed_batch[0][0:20],
+           "\nCross",outs[4],"\n\n"))))
       """
       if epoch > FLAGS.early_stopping and cost_val[-1] > np.mean(cost_val[-(FLAGS.early_stopping+1):-1]):
           print "Early stopping..."

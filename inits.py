@@ -16,7 +16,7 @@ def glorot(shape, name=None):
         subshape = (subshape, 1)
       newShape.append(subshape)
     shape = newShape
-    print 'SHAPE', shape
+    #print 'SHAPE', shape
     if len(shape[0]) == 3: #Hard Code
       weight_shape = (shape[0][1], shape[0][2]) 
     else:

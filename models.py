@@ -48,9 +48,8 @@ class Model(object):
         """
         hidden = [0]*self.number_of_features
         for i, layer in enumerate(self.layers[:-1]):
-          hidden[i] = layer(self.activations[-1])
-        """
-        """
+          hidden[i] = layer(self.activations[-1]) 
+       
         for i in xrange(len(self.layers)):
           if self.layers[i].parallel:
             outputs=[]*self.layers[i].parallel_num
@@ -87,8 +86,8 @@ class Model(object):
             #If not nested (i.e. FC)
             else:
               #F*N*(Speed+Time) -> N*1
-              print "TIMESHAPE", tf.expand_dims(tf.expand_dims(self.time_inputs[i], 0),0)
-              print "ACTSHAPE", self.activations[-1][-1].get_shape().as_list()+[1]
+              #print "TIMESHAPE", tf.expand_dims(tf.expand_dims(self.time_inputs[i], 0),0)
+              #print "ACTSHAPE", self.activations[-1][-1].get_shape().as_list()+[1]
               #FC_input = tf.concat(2, [tf.expand_dims(self.activations[-1][-1], 2),
               #              tf.tile(tf.expand_dims(self.time_inputs[i], 0), 
               #                self.activations[-1][-1].get_shape().as_list()+[1])])
@@ -122,8 +121,7 @@ class Model(object):
         """
         
         #Output: B X N
-        self.outputs = np.array(self.activations)[:,-1].tolist()
-        print "Outputs", self.outputs 
+        self.outputs = tf.stack(np.array(self.activations)[:,-1].tolist())
         #print "ACT",self.activations
         """
         for layer in self.layers:
@@ -185,29 +183,35 @@ class GCN(Model):
 
     def _loss(self):
         # Weight decay losis
-        
+        """
         for layer in self.layers:
             #If nested (i.e. GC)
             if isinstance(layer, list):
                 continue
-                #for sublayer in layer: 
-                   #self.loss += FLAGS.weight_decay * tf.nn.l2_loss(sublayer.vars.values())
+                for sublayer in layer:
+                    for subsublayer in sublayer: #Just fucking kill me
+                        self.loss += FLAGS.weight_decay * tf.nn.l2_loss(subsublayer.vars.values())
             #else:
-                self.loss += FLAGS.weight_decay * tf.nn.l2_loss(layer.vars.values())
-        """
+            #    self.loss += FLAGS.weight_decay * tf.nn.l2_loss(layer.vars.values())
+        
         for var in self.layers[0].vars.values():
             self.loss += FLAGS.weight_decay * tf.nn.l2_loss(var)
         """
         # Cross entropy error
-        self.cross = tf.nn.softmax_cross_entropy_with_logits(tf.transpose(self.outputs), tf.transpose(self.placeholders['labels']))
-        self.loss += tf.nn.softmax_cross_entropy_with_logits(tf.transpose(self.outputs), tf.transpose(self.placeholders['labels']))
-        #print "SOFTMAX", tf.nn.softmax_cross_entropy_with_logits(self.outputs, self.placeholders['labels'])
+        print "OutShape", self.outputs 
+        print "LabShape", self.placeholders['labels']
+        #self.cross = tf.nn.softmax_cross_entropy_with_logits(tf.transpose(self.outputs), tf.transpose(self.placeholders['labels']))
+        #self.cross = tf.nn.softmax_cross_entropy_with_logits(self.outputs, self.placeholders['labels'])
+        #self.diff = tf.subtract(self.outputs, self.placeholders['labels'])
+        #self.cross = tf.nn.l2_loss(self.diff)
+        self.cross = tf.nn.l2_loss(tf.subtract(self.outputs, self.placeholders['labels']))
+        print "SELFCROSS",self.cross
+        self.loss += self.cross
     def _accuracy(self):
         correct_prediction = tf.equal(tf.round(self.outputs), self.placeholders['labels'])
         self.accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 
     def _build(self):
-        print "INOUT" , self.input_dim[1]
         self.layers.append([[GraphConvolution(input_dim=(self.input_dim[1], self.hiddenUnits[i]),
                                              output_dim=(self.input_dim[1], self.hiddenUnits[i+1]),
                                              placeholders=self.placeholders,
