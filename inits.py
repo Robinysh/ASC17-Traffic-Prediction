@@ -10,10 +10,11 @@ def uniform(shape, scale=0.05, name=None):
 def glorot(shape, name=None):
     """Glorot & Bengio (AISTATS 2010) init."""
     newShape = []
+    #print "OLDSHAPE", shape
     for subshape in shape:
       if not isinstance(subshape, tuple):
         #Verticle shape: [[1],[2]]
-        subshape = (subshape, 1)
+        subshape = (subshape,1)
       newShape.append(subshape)
     shape = newShape
     #print 'SHAPE', shape

@@ -38,13 +38,15 @@ SOFTWARE.
 import random
 import train
 import tensorflow as tf
+import thread
+
 #
 # Global variables
 # Setup optimal string and GA input variables.
 #
 
 DNA_SIZE    = 7
-POP_SIZE    = 20
+POP_SIZE    = 100
 GENERATIONS = 5000
 MUTATION_RATE = .2
 CROSSOVER_RATE = .2
@@ -128,7 +130,7 @@ def fitness(dna):
                       'number_of_hidden_layers': dna[5],
                       'batch_size': dna[4],
                       'print_interval': 10,
-                      'epoch':2 ,
+                      'epoch':5 ,
                       'amount_of_testing_data': 30 }
   hiddenUnits = dna[6]
   print hyperparameters

@@ -214,10 +214,12 @@ class FullyConnected(Layer):
         x = tf.nn.dropout(x, 1-self.dropout)
 
         # Fully Connected
-        if len(self.input_dim) == 3: 
-          output = tf.einsum('ijk,jk->i',x, self.vars['weights_'])
-        else:
-          output = tf.matmul(x, self.vars['weights_'])
+        #if len(self.input_dim) == 3: 
+        #  output = tf.einsum('ijk,jk->i',x, self.vars['weights_'])
+        #else:
+        #  output = tf.matmul(x, self.vars['weights_'])
+        #print self.vars['weights_'] 
+        output = tf.matmul(x, self.vars['weights_'])
         # bias
         if self.bias:
             output += self.vars['bias']

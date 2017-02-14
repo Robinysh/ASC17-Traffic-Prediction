@@ -207,7 +207,7 @@ class TrafficPrediction(object):
                   "loss_diff=%.5f"%(outs[1]-cost),\
                   "acc_diff=%.5f" %(outs[2]-acc),\
                   "time=%.5f" %(time.time() - t),\
-                  "\nOutputs", outs[3][0][0:20],\
+                  "\nOutputs", outs[3][0][0][0:20],\
                   "\nLabels",speed_batch[1][0:20],\
                   "\nInput",speed_batch[0][0:20],"\n\n"
           
@@ -258,15 +258,15 @@ if __name__ == "__main__":
   Hyperparameters
   """""""""""""""""""""
 
-  hyperparameters = { 'learning_rate': 5e-3, 
-                      'dropout': 0.01,
+  hyperparameters = { 'learning_rate': 1e-5, 
+                      'dropout': 0.1,
                       'weight_decay': 1e-3,
                       'number_of_features': 10,
                       'number_of_hidden_layers': 2,
                       'batch_size': 5,
                       'early_stopping': 10,
                       'print_interval': 10,
-                      'epoch':1 ,
+                      'epoch':10 ,
                       'amount_of_testing_data': 20 }
   hiddenUnits = [64, 64]
 

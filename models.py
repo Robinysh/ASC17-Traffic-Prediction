@@ -91,12 +91,22 @@ class Model(object):
               #FC_input = tf.concat(2, [tf.expand_dims(self.activations[-1][-1], 2),
               #              tf.tile(tf.expand_dims(self.time_inputs[i], 0), 
               #                self.activations[-1][-1].get_shape().as_list()+[1])])
+              """
               FC_input = tf.concat(2, [tf.expand_dims(self.activations[-1][-1], 2),
                             tf.tile(tf.expand_dims(tf.expand_dims(self.time_inputs[i], 0),0), 
                               self.activations[-1][-1].get_shape().as_list()+[1])])
               output = layer(FC_input)
               self.activations[-1].append(output)
-        
+              """
+              FC_input = tf.reshape(self.activations[-1][-1], [-1])
+              #print "FC", FC_input
+              #print "Time", self.time_inputs[i]
+              FC_input = tf.expand_dims(tf.concat(0, [FC_input, self.time_inputs[i]]),0)
+              #print "FC",FC_input
+              output = layer(FC_input)
+              #print "Output",output
+              self.activations[-1].append(output)
+
         """
         self.inputs = tf.unstack(self.inputs, axis=0)
         for input in self.inputs: 
@@ -224,10 +234,9 @@ class GCN(Model):
                                              parallel_num=FLAGS.number_of_features)\
                               for i in xrange(FLAGS.number_of_hidden_layers+1)]\
                           for _ in xrange(FLAGS.number_of_features)])
-
-        self.layers.append(FullyConnected(input_dim=(self.input_dim[1], self.number_of_features, 1 + self.time_input_dim[1]),
-                                        number_of_features=self.number_of_features,
-                                        output_dim=(self.output_dim[1],),
+        self.layers.append(FullyConnected(input_dim=(1,self.input_dim[1]*FLAGS.number_of_features + self.time_input_dim[1]),
+                                        number_of_features=(1,self.number_of_features),
+                                        output_dim=(1,self.output_dim[1]),
                                         placeholders=self.placeholders,
                                         act=lambda x: x,
                                         dropout=True,
