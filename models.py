@@ -121,6 +121,7 @@ class Model(object):
         """
         
         #Output: B X N
+        #print "ACT", self.activations
         self.outputs = tf.stack(np.array(self.activations)[:,-1].tolist())
         #print "ACT",self.activations
         """
@@ -197,15 +198,14 @@ class GCN(Model):
         for var in self.layers[0].vars.values():
             self.loss += FLAGS.weight_decay * tf.nn.l2_loss(var)
         """
-        # Cross entropy error
-        print "OutShape", self.outputs 
-        print "LabShape", self.placeholders['labels']
+        # Evaluate Loss
+        #print "OutShape", self.outputs 
+        #print "LabShape", self.placeholders['labels']
         #self.cross = tf.nn.softmax_cross_entropy_with_logits(tf.transpose(self.outputs), tf.transpose(self.placeholders['labels']))
         #self.cross = tf.nn.softmax_cross_entropy_with_logits(self.outputs, self.placeholders['labels'])
         #self.diff = tf.subtract(self.outputs, self.placeholders['labels'])
         #self.cross = tf.nn.l2_loss(self.diff)
         self.cross = tf.nn.l2_loss(tf.subtract(self.outputs, self.placeholders['labels']))
-        print "SELFCROSS",self.cross
         self.loss += self.cross
     def _accuracy(self):
         correct_prediction = tf.equal(tf.round(self.outputs), self.placeholders['labels'])
@@ -215,13 +215,14 @@ class GCN(Model):
         self.layers.append([[GraphConvolution(input_dim=(self.input_dim[1], self.hiddenUnits[i]),
                                              output_dim=(self.input_dim[1], self.hiddenUnits[i+1]),
                                              placeholders=self.placeholders,
-                                             act=tf.nn.relu if i==FLAGS.number_of_layers else lambda x:x,
+                                             #act=tf.nn.relu if i==FLAGS.number_of_layers+1 else lambda x:x,
+                                             act=lambda x:x,
                                              dropout=True,
                                              bias=True,
                                              logging=self.logging,
                                              parallel=True,
                                              parallel_num=FLAGS.number_of_features)\
-                              for i in xrange(FLAGS.number_of_layers)]\
+                              for i in xrange(FLAGS.number_of_hidden_layers+1)]\
                           for _ in xrange(FLAGS.number_of_features)])
 
         self.layers.append(FullyConnected(input_dim=(self.input_dim[1], self.number_of_features, 1 + self.time_input_dim[1]),

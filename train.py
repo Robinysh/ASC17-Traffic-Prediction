@@ -17,26 +17,28 @@ seed = 123
 np.random.seed(seed)
 tf.set_random_seed(seed)
 
-"""""""""""""""""""""
-Hyperparameters
-"""""""""""""""""""""
-flags = tf.app.flags
-FLAGS = flags.FLAGS
-flags.DEFINE_string('model', 'gcn', 'Model string.')  # 'gcn', 'gcn_cheby',
-flags.DEFINE_float('learning_rate', 1e-4, 'Initial learning rate.')
-flags.DEFINE_float('dropout', 0.01, 'Dropout rate (1 - keep probability).')
-flags.DEFINE_float('weight_decay', 1e-1, 'Weight for L2 loss on embedding matrix.')
-flags.DEFINE_integer('number_of_features', 20, 'Number of features for graph convolution')
-flags.DEFINE_integer('number_of_layers', 3, 'Number of Layers for the graph convolution.')
-flags.DEFINE_integer('batch_size', 5, 'Number of timesteps to feed each time.')
-flags.DEFINE_integer('early_stopping', 10, 'NOT YET IMPLEMENTED Tolerance for early stopping (# of epochs).')
-flags.DEFINE_integer('print_interval', 10, 'Number of runs per print.')
-flags.DEFINE_integer('epoch',10 , 'Number of epochs.')
-flags.DEFINE_integer('amount_of_testing_data', 20, 'NOT YET IMPLEMENTED Amount of testing data for validationa')
-hiddenUnits = [64, 64]
-
 class TrafficPrediction(object):
   def __init__(self):
+    #Clear File
+    open("output.txt", 'w').close() 
+    """""""""""""""""""""
+    Hyperparameters
+    """""""""""""""""""""
+
+    self.flags = tf.app.flags
+    FLAGS = self.flags.FLAGS
+    #flags.DEFINE_string('model', 'gcn', 'Model string.')  # 'gcn', 'gcn_cheby',
+    self.flags.DEFINE_float('learning_rate', 0, 'Initial learning rate.')
+    self.flags.DEFINE_float('dropout', 0, 'Dropout rate (1 - keep probability).')
+    self.flags.DEFINE_float('weight_decay', 0, 'Weight for L2 loss on embedding matrix.')
+    self.flags.DEFINE_integer('number_of_features', 0, 'Number of features for graph convolution')
+    self.flags.DEFINE_integer('number_of_hidden_layers',0, 'Number of Hidden Layers for the graph convolution.')
+    self.flags.DEFINE_integer('batch_size', 0, 'Number of timesteps to feed each time.')
+    self.flags.DEFINE_integer('early_stopping',1 , 'NOT YET IMPLEMENTED Tolerance for early stopping (# of epochs).')
+    self.flags.DEFINE_integer('print_interval', 10, 'Number of runs per print.')
+    self.flags.DEFINE_integer('epoch',10 , 'Number of epochs.')
+    self.flags.DEFINE_integer('amount_of_testing_data', 1, 'NOT YET IMPLEMENTED Amount of testing data for validationa')
+
     """""""""""""""""""""
     Data Preprocessing
     """""""""""""""""""""
@@ -101,18 +103,23 @@ class TrafficPrediction(object):
     self.data_time.append([week] + day_onehot + hour_onehot)
 
 
-    if FLAGS.model   == 'gcn':
-        self.support      = [preprocess_adj(self.graph)]
-        self.num_supports = 1
-        self.model_func   = GCN
-    elif FLAGS.model == 'gcn_cheby':
-        self.support      = chebyshev_polynomials(self.graph, FLAGS.max_degree)
-        self.num_supports = 1 + FLAGS.max_degree
-        self.model_func   = GCN
-    else:
-        raise ValueError('Invalid argument for model: ' + str(FLAGS.model))
+    self.support      = [preprocess_adj(self.graph)]
+    self.num_supports = 1
+    self.model_func   = GCN
 
-  def __call__(self, FLAGS):
+  def __call__(self, hyperparameters, hiddenUnits):
+    self.FLAGS = self.flags.FLAGS
+    FLAGS=self.flags.FLAGS #I have no idea how flags work.
+    FLAGS.learning_rate = hyperparameters['learning_rate']
+    FLAGS.dropout = hyperparameters['dropout']
+    FLAGS.weight_decay = hyperparameters['weight_decay']
+    FLAGS.number_of_features = hyperparameters['number_of_features']
+    FLAGS.number_of_hidden_layers = hyperparameters['number_of_hidden_layers']
+    FLAGS.batch_size = hyperparameters['batch_size']
+    FLAGS.print_interval = hyperparameters['print_interval']
+    FLAGS.epoch = hyperparameters['epoch']
+    FLAGS.amount_of_testing_data = hyperparameters['amount_of_testing_data']
+    
     # Define placeholders
     placeholders = {
         'support' : [tf.placeholder(tf.float32)],
@@ -146,7 +153,7 @@ class TrafficPrediction(object):
     cost_val = []
 
     # Train model
-    number_of_runs = int(math.floor(len(self.speed[1])/FLAGS.batch_size)) - 1
+    number_of_runs = int(math.floor((len(self.speed[1])-FLAGS.amount_of_testing_data)/FLAGS.batch_size))
     for epoch in xrange(FLAGS.epoch):
       for batch_position in xrange(0, number_of_runs):
           t = time.time()
@@ -194,7 +201,7 @@ class TrafficPrediction(object):
           """
           if batch_position%FLAGS.print_interval==0:
             print "Epoch:", '%03d' % (epoch + 1),\
-                  "BatchPos:", batch_position,\
+                  "Trained Data:", batch_position*FLAGS.batch_size,\
                   "train_loss=%.5f"%outs[1],\
                   "train_acc=%.5f"%outs[2],\
                   "loss_diff=%.5f"%(outs[1]-cost),\
@@ -219,23 +226,50 @@ class TrafficPrediction(object):
           """
 
     # Testing
-    speed_batch = self.speed[-2*FLAGS.batch_size:]
-    time_batch = self.data_time[-2*FLAGS.batch_size:-FLAGS.batch_size]
-    #for i in xrange(FLAGS.batch_size*2):
-    #  speed_batch.append(speed[-i])
-     
-    test_cost, test_acc, test_duration = evaluate(speed_batch[:FLAGS.batch_size], time_batch, support, speed_batch[FLAGS.batch_size:])
-    print "Test set results:", "cost=", test_cost, "accuracy=", test_acc, "time=", test_duration
+    test_cost = []
+    test_acc = []
+    test_batch_size = int(math.floor(FLAGS.amount_of_testing_data/FLAGS.batch_size))
+    for i in xrange(test_batch_size, 1,-1):
+      speed_batch = self.speed[-FLAGS.batch_size*(i+1):-FLAGS.batch_size*(i-1)]
+      time_batch = self.data_time[-FLAGS.batch_size*(i+1):-FLAGS.batch_size*i]
+      #for i in xrange(FLAGS.batch_size*2):
+      #  speed_batch.append(speed[-i])
+      out = evaluate(speed_batch[:FLAGS.batch_size], time_batch, self.support, speed_batch[FLAGS.batch_size:])
+      test_cost.append(out[0])
+      test_acc.append(out[1])
+      print "Test set results:", "cost=",out[0], "accuracy=", out[1], "time=", out[2]
+    
+    print "COST", test_cost
+    print "ACC", test_acc
+    print "Summary of Test Result: cost=", sum(test_cost)/len(test_cost), "accuracy=", sum(test_acc)/len(test_acc)   
     record.append(''.join(map(str, 
-          ("Test set results:", "cost=", test_cost,
-          "accuracy=", test_acc, "time=", test_duration))))
-    file = open("output.txt", "w+b")
+            ("Summary of Test Result: cost=", sum(test_cost)/len(test_cost), "accuracy=", sum(test_acc)/len(test_acc)))))   
+    
+            
+    file = open("output.txt", "a")
     for el in record:
       print>>file, el
-
-    return ''.join(map(str,("Test set results:", "cost=", test_cost, "accuracy=", test_acc, "time=", test_duration))) 
-
+    file.close()
+    #Return loss for GA
+    return -sum(test_cost)/len(test_cost)
 
 if __name__ == "__main__":
-      traffic_prediction = TrafficPrediction()
-      traffic_prediction(FLAGS)
+  """""""""""""""""""""
+  Hyperparameters
+  """""""""""""""""""""
+
+  hyperparameters = { 'learning_rate': 5e-3, 
+                      'dropout': 0.01,
+                      'weight_decay': 1e-3,
+                      'number_of_features': 10,
+                      'number_of_hidden_layers': 2,
+                      'batch_size': 5,
+                      'early_stopping': 10,
+                      'print_interval': 10,
+                      'epoch':1 ,
+                      'amount_of_testing_data': 20 }
+  hiddenUnits = [64, 64]
+
+      
+  traffic_prediction = TrafficPrediction()
+  traffic_prediction(hyperparameters, hiddenUnits)
