@@ -132,7 +132,8 @@ class Model(object):
         
         #Output: B X N
         #print "ACT", self.activations
-        self.outputs = tf.stack(np.array(self.activations)[:,-1].tolist())
+        self.outputs = tf.stack(np.array(self.activations)[:,-1].tolist()[0])
+        #print "FINOUT",self.outputs
         #print "ACT",self.activations
         """
         for layer in self.layers:

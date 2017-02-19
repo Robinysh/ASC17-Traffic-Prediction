@@ -11,7 +11,6 @@ import sys
 import cPickle as cpk
 import csv
 #Record array
-record = []
 # Set random seed
 seed = 123
 np.random.seed(seed)
@@ -97,7 +96,7 @@ class TrafficPrediction(object):
         hour_onehot[hour]         = hour - min/60
         hour_onehot[(hour+1)%24 ] = min/60
         self.data_time.append([week] + day_onehot + hour_onehot)
-
+    
     hour_onehot    = [0]*24
     hour_onehot[8] = 1
     self.data_time.append([week] + day_onehot + hour_onehot)
@@ -153,7 +152,7 @@ class TrafficPrediction(object):
     cost_val = []
 
     # Train model
-    number_of_runs = int(math.floor((len(self.speed[1])-FLAGS.amount_of_testing_data)/FLAGS.batch_size))
+    number_of_runs = int(math.floor((len(self.speed)-FLAGS.amount_of_testing_data)/FLAGS.batch_size))
     for epoch in xrange(FLAGS.epoch):
       for batch_position in xrange(0, number_of_runs):
           t = time.time()
@@ -198,6 +197,7 @@ class TrafficPrediction(object):
                "\nLabels",speed_batch[1][0:20],
                "\nInput", speed_batch[0][0:20],
                "\nCross",outs[4],"\n\n"))))
+          
           """
           if batch_position%FLAGS.print_interval==0:
             print "Epoch:", '%03d' % (epoch + 1),\
@@ -207,18 +207,11 @@ class TrafficPrediction(object):
                   "loss_diff=%.5f"%(outs[1]-cost),\
                   "acc_diff=%.5f" %(outs[2]-acc),\
                   "time=%.5f" %(time.time() - t),\
-                  "\nOutputs", outs[3][0][0][0:20],\
+                  "\nOutputs", outs[3][0][0:20],\
                   "\nLabels",speed_batch[1][0:20],\
                   "\nInput",speed_batch[0][0:20],"\n\n"
           
-            record.append(''.join(map(str,
-                ("Epoch: " , '%d' % (epoch + 1),
-                " BatchPos: ", batch_position,
-                " train_loss: %.5f"%outs[1],
-               "\nOutputs: ", outs[3][0][0:20],
-               "\nLabels",speed_batch[1][0:20],
-               "\nInput", speed_batch[0][0:20],
-               "\nCross",outs[4],"\n\n"))))
+          
           """
           if epoch > FLAGS.early_stopping and cost_val[-1] > np.mean(cost_val[-(FLAGS.early_stopping+1):-1]):
               print "Early stopping..."
@@ -239,36 +232,28 @@ class TrafficPrediction(object):
       test_acc.append(out[1])
       print "Test set results:", "cost=",out[0], "accuracy=", out[1], "time=", out[2]
     
-    print "COST", test_cost
-    print "ACC", test_acc
-    print "Summary of Test Result: cost=", sum(test_cost)/len(test_cost), "accuracy=", sum(test_acc)/len(test_acc)   
-    record.append(''.join(map(str, 
-            ("Summary of Test Result: cost=", sum(test_cost)/len(test_cost), "accuracy=", sum(test_acc)/len(test_acc)))))   
+    print "Summary: cost=", sum(test_cost)/len(test_cost), "accuracy=", sum(test_acc)/len(test_acc) 
     
             
-    file = open("output.txt", "a")
-    for el in record:
-      print>>file, el
-    file.close()
     #Return loss for GA
-    return -sum(test_cost)/len(test_cost)
+    return sum(test_cost)/len(test_cost)
 
 if __name__ == "__main__":
   """""""""""""""""""""
   Hyperparameters
   """""""""""""""""""""
 
-  hyperparameters = { 'learning_rate': 1e-5, 
-                      'dropout': 0.1,
+  hyperparameters = { 'learning_rate': 2e-5, 
+                      'dropout': 0.01,
                       'weight_decay': 1e-3,
                       'number_of_features': 10,
-                      'number_of_hidden_layers': 2,
-                      'batch_size': 5,
+                      'number_of_hidden_layers': 5,
+                      'batch_size': 10,
                       'early_stopping': 10,
                       'print_interval': 10,
-                      'epoch':10 ,
-                      'amount_of_testing_data': 20 }
-  hiddenUnits = [64, 64]
+                      'epoch': 5,
+                      'amount_of_testing_data': 30 }
+  hiddenUnits = [64, 64, 64, 64, 64]
 
       
   traffic_prediction = TrafficPrediction()
