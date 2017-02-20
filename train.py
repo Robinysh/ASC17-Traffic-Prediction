@@ -34,8 +34,8 @@ class TrafficPrediction(object):
     self.flags.DEFINE_integer('number_of_hidden_layers',0, 'Number of Hidden Layers for the graph convolution.')
     self.flags.DEFINE_integer('batch_size', 0, 'Number of timesteps to feed each time.')
     self.flags.DEFINE_integer('early_stopping',1 , 'NOT YET IMPLEMENTED Tolerance for early stopping (# of epochs).')
-    self.flags.DEFINE_integer('print_interval', 10, 'Number of runs per print.')
-    self.flags.DEFINE_integer('epoch',10 , 'Number of epochs.')
+    self.flags.DEFINE_integer('print_interval', 1, 'Number of runs per print.')
+    self.flags.DEFINE_integer('epoch',2 , 'Number of epochs.')
     self.flags.DEFINE_integer('amount_of_testing_data', 1, 'NOT YET IMPLEMENTED Amount of testing data for validationa')
 
     """""""""""""""""""""
@@ -60,36 +60,56 @@ class TrafficPrediction(object):
     speed = []
     next(speed_raw)
     for row in speed_raw:
-      speed.append([int(el) for el in row[0].split(',')[1:-1]]) 
+      speed.append([int(el) for el in row[0].split(',')[1:-1]])
+    #Time*Node
     self.speed = np.array(speed).T
 
+    
+    del_count = 0
+    del_index = []
     self.data_time = []
     for month in xrange(3,4):
-      for day in xrange(1,32):
-        day_onehot        = [0]*7
-        day_onehot[day//7] = 1 
-        week              = day % 7
-        for hour in xrange(0,24):
-          for min in xrange(0,60,5):
-            hour_onehot               = [0]*24
-            hour_onehot[hour]         = hour - min/60
-            hour_onehot[(hour+1)%24 ] = min/60
-            self.data_time.append([week] + day_onehot + hour_onehot)
-     
-    for day in xrange(1,20):
-      day_onehot        = [0]*7
-      day_onehot[day//7] = 1 
-      week              = day % 7
-      for hour in xrange(0,24):
-        for min in xrange(0,60,5):
-          hour_onehot               = [0]*24
-          hour_onehot[hour]         = hour - min/60
-          hour_onehot[(hour+1)%24 ] = min/60
-          self.data_time.append([week] + day_onehot + hour_onehot)
+      week = 0
+      for day in xrange(31):
+        day_of_week = (day+2)%7
+        if day_of_week != 6 and day_of_week != 0:
+          day_onehot        = [0]*5
+          day_onehot[day_of_week-1] = 1 
+          if day_of_week==0: week += 1
+          for hour in xrange(0,24):
+            for min in xrange(0,60,5):
+              hour_onehot               = [0]*24
+              hour_onehot[hour]         = hour - min/60
+              hour_onehot[(hour+1)%24 ] = min/60
+              self.data_time.append([week] + day_onehot + hour_onehot)
+              del_count += 1
+        else:
+          del_index = del_index + range(int(day*24*60/5), int((day+1)*24*60/5))
+    week = 0 
+    for day in xrange(19):
+      #Skip Ching Ming Holiday
+      if day != 3:
+        day_of_week = (day+5)%7   
+        if day_of_week != 6 and day_of_week != 0:
+          day_onehot        = [0]*5
+          day_onehot[day_of_week-1] = 1 
+          if day_of_week==0: week += 1
+          for hour in xrange(0,24):
+            for min in xrange(0,60,5):
+              hour_onehot               = [0]*24
+              hour_onehot[hour]         = hour - min/60
+              hour_onehot[(hour+1)%24 ] = min/60
+              self.data_time.append([week] + day_onehot + hour_onehot)
+        else:
+          del_index = del_index + range(int((31+day)*24*60/5), int((31+day+1)*24*60/5))
 
-    day_onehot       = [0]*7
-    day_onehot[21//7] = 1 
-    week             = 21 % 7 
+      else:
+        del_index = del_index + range(int((31+day)*24*60/5),int((31+day+1)*24*60/5))
+
+    self.speed = np.delete(self.speed, del_index,axis=0) 
+    day_onehot       = [0]*5
+    day_onehot[(21+5)%7-1] = 1 
+    week             = 21 // 7 
     for hour in xrange(0,8):
       for min in xrange(0,60,5):
         hour_onehot               = [0]*24
@@ -244,16 +264,16 @@ if __name__ == "__main__":
   """""""""""""""""""""
 
   hyperparameters = { 'learning_rate': 2e-5, 
-                      'dropout': 0.01,
-                      'weight_decay': 1e-3,
-                      'number_of_features': 10,
-                      'number_of_hidden_layers': 5,
+                      'dropout': 0.1,
+                      'weight_decay': 1,
+                      'number_of_features': 5,
+                      'number_of_hidden_layers': 2,
                       'batch_size': 10,
                       'early_stopping': 10,
-                      'print_interval': 10,
-                      'epoch': 5,
+                      'print_interval': 20,
+                      'epoch': 2,
                       'amount_of_testing_data': 30 }
-  hiddenUnits = [64, 64, 64, 64, 64]
+  hiddenUnits = [256, 256]
 
       
   traffic_prediction = TrafficPrediction()
