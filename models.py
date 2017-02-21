@@ -183,7 +183,7 @@ class GCN(Model):
         self.time_inputs = placeholders['FC_features']
         self.input_dim = input_dim
         self.time_input_dim = time_input_dim
-        self.hiddenUnits = [1]+hiddenUnits+[1]
+        self.hiddenUnits = [1]+hiddenUnits
         self.number_of_features = FLAGS.number_of_features
         # self.input_dim = self.inputs.get_shape().as_list()[1]  # To be supported in future Tensorflow versions
         self.output_dim = placeholders['labels'].get_shape().as_list()
@@ -233,9 +233,9 @@ class GCN(Model):
                                              logging=self.logging,
                                              parallel=True,
                                              parallel_num=FLAGS.number_of_features)\
-                              for i in xrange(FLAGS.number_of_hidden_layers+1)]\
+                              for i in xrange(FLAGS.number_of_hidden_layers)]\
                           for _ in xrange(FLAGS.number_of_features)])
-        self.layers.append(FullyConnected(input_dim=(1,self.input_dim[1]*FLAGS.number_of_features + self.time_input_dim[1]),
+        self.layers.append(FullyConnected(input_dim=(1,self.input_dim[1]*self.hiddenUnits[-1]+ self.time_input_dim[1]),
                                         number_of_features=(1,self.number_of_features),
                                         output_dim=(1,self.output_dim[1]),
                                         placeholders=self.placeholders,

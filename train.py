@@ -174,20 +174,19 @@ class TrafficPrediction(object):
     # Train model
     number_of_runs = int(math.floor((len(self.speed)-FLAGS.amount_of_testing_data)/FLAGS.batch_size))
     for epoch in xrange(FLAGS.epoch):
-      for batch_position in xrange(0, number_of_runs):
+      for batch_position in xrange(0, number_of_runs-1):
           t = time.time()
           
           #batch = speed[batch_position*FLAGS.batch_size:(batch_position+1)*FLAGS.batch_size]
           #B*N
           speed_batch = []
           time_batch = []
-          for i in xrange(FLAGS.batch_size + 1):
-            speed_batch.append(self.speed[batch_position*FLAGS.batch_size + i])
-          for i in xrange(FLAGS.batch_size):
-            time_batch.append(self.data_time[batch_position*FLAGS.batch_size + i])
+          speed_batch = self.speed[batch_position*FLAGS.batch_size:(batch_position+2)*FLAGS.batch_size]
+          time_batch = self.data_time[batch_position*FLAGS.batch_size:(batch_position+1)*FLAGS.batch_size] 
           
           # Construct feed dictionary
-          feed_dict = construct_feed_dict(speed_batch[:-1], time_batch, self.support, speed_batch[1:], placeholders)
+
+          feed_dict = construct_feed_dict(speed_batch[:FLAGS.batch_size], time_batch, self.support, speed_batch[FLAGS.batch_size:], placeholders)
           feed_dict.update({placeholders['dropout']: FLAGS.dropout})
 
           # Training step
@@ -195,7 +194,7 @@ class TrafficPrediction(object):
 
           #print "TEST", sess.run([model.outputs, model.placeholders['labels']], feed_dict=feed_dict)
           # Validation
-          cost, acc, duration = evaluate(speed_batch[:-1], time_batch, self.support, speed_batch[1:])
+          cost, acc, duration = evaluate(speed_batch[:FLAGS.batch_size], time_batch, self.support, speed_batch[FLAGS.batch_size:])
           cost_val.append(cost)
           """ 
           # Print results
@@ -238,11 +237,10 @@ class TrafficPrediction(object):
               break
           """
 
-    # Testing
     test_cost = []
     test_acc = []
-    test_batch_size = int(math.floor(FLAGS.amount_of_testing_data/FLAGS.batch_size))
-    for i in xrange(test_batch_size, 1,-1):
+    test_batch_size = int(math.ceil(FLAGS.amount_of_testing_data/FLAGS.batch_size))
+    for i in xrange(test_batch_size+1, 1,-1):
       speed_batch = self.speed[-FLAGS.batch_size*(i+1):-FLAGS.batch_size*(i-1)]
       time_batch = self.data_time[-FLAGS.batch_size*(i+1):-FLAGS.batch_size*i]
       #for i in xrange(FLAGS.batch_size*2):
@@ -251,7 +249,6 @@ class TrafficPrediction(object):
       test_cost.append(out[0])
       test_acc.append(out[1])
       print "Test set results:", "cost=",out[0], "accuracy=", out[1], "time=", out[2]
-    
     print "Summary: cost=", sum(test_cost)/len(test_cost), "accuracy=", sum(test_acc)/len(test_acc) 
     
             
@@ -263,17 +260,17 @@ if __name__ == "__main__":
   Hyperparameters
   """""""""""""""""""""
 
-  hyperparameters = { 'learning_rate': 2e-5, 
+  hyperparameters = { 'learning_rate': 5e-6, 
                       'dropout': 0.1,
                       'weight_decay': 1,
-                      'number_of_features': 5,
-                      'number_of_hidden_layers': 2,
-                      'batch_size': 10,
+                      'number_of_features': 1,
+                      'number_of_hidden_layers': 3,    
+                      'batch_size': 20,
                       'early_stopping': 10,
                       'print_interval': 20,
-                      'epoch': 2,
+                      'epoch': 10,
                       'amount_of_testing_data': 30 }
-  hiddenUnits = [256, 256]
+  hiddenUnits = [128, 128, 128]
 
       
   traffic_prediction = TrafficPrediction()
